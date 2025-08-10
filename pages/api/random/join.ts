@@ -1,9 +1,7 @@
 import { PrismaClient as DBClient } from '@prisma/client';
-import type { NextApiRequest, NextApiResponse } from 'next';
-
 const prisma = new DBClient();
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: any, res: any)
   if (req.method !== 'POST') return res.status(405).end();
   const { userId, intent = 'CHAT' } = req.body as { userId: string; intent?: IntentType };
   if (!userId) return res.status(400).json({ error: 'userId required' });
@@ -45,7 +43,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 import { PrismaClient } from '@prisma/client';
-import type { NextApiRequest, NextApiResponse } from 'next';
 const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
