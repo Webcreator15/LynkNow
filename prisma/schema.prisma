@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -19,6 +20,8 @@ model User {
   profiles      Profile[]
   conversations ConversationParticipant[]
   messages      Message[]
+
+  queue        RandomQueue?   // relation 1-1 vers RandomQueue
 }
 
 enum ProfileType {
@@ -65,3 +68,21 @@ model Message {
   content        String
   createdAt      DateTime @default(now())
 }
+
+enum IntentType {
+  AMOUR
+  AMITIE
+  CHAT
+}
+
+model RandomQueue {
+  id         String     @id @default(cuid())
+  userId     String     @unique
+  intent     IntentType @default(CHAT)
+  enqueuedAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([intent, enqueuedAt])
+}
+

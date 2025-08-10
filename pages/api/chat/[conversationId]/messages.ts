@@ -1,0 +1,38 @@
+import { PrismaClient } from '@prisma/client';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+const prisma = new PrismaClient();
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { conversationId } = req.query;
+  if (!conversationId || typeof conversationId !== 'string') {
+    return res.status(400).json({ error: 'conversationId is required' });
+  }
+
+  try {
+    if (req.method === 'GET') {
+      const messages = await prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'asc' },
+      });
+      return res.status(200).json(messages);
+    }
+
+    if (req.method === 'POST') {
+      const { senderId, content } = req.body;
+      if (!senderId || !content) {
+        return res.status(400).json({ error: 'senderId and content are required' });
+      }
+      const newMessage = await prisma.message.create({
+        data: { conversationId, senderId, content },
+      });
+      return res.status(201).json(newMessage);
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
