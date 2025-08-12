@@ -1,14 +1,14 @@
+// pages/chat/random.tsx
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-// si tu utilises next-auth, décommente :
 // import { useSession } from "next-auth/react";
 
 type Msg = { id: string; senderId: string; content: string; createdAt: string };
 
 export default function RandomChatPage() {
-  // 1) USER ID — remplace par l'id réel (next-auth) :
   // const { data } = useSession();
   // const userId = data?.user?.id as string | undefined;
+
   // Pour tester sans login :
   const [userId] = useState(() => "user_" + Math.floor(Math.random() * 100000));
 
@@ -17,31 +17,34 @@ export default function RandomChatPage() {
   const [peerId, setPeerId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const pollRef = useRef<NodeJS.Timer | null>(null);
 
-  // 2) JOIN queue & match
+  // ✅ Ref du poll, typée proprement
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 1) JOIN queue & match
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    let joinTimeout: number | undefined;
 
     const tryJoin = async () => {
       try {
         const res = await fetch("/api/random/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId }), // + intent si tu veux: { userId, intent: "CHAT" }
+          // tu peux ajouter intent: "CHAT" si tu gères les intentions côté API
+          body: JSON.stringify({ userId }),
         });
         const data = await res.json();
-
         if (cancelled) return;
 
         if (data.matched) {
           setConversationId(data.conversationId);
-          setPeerId(data.peerId);
+          setPeerId(data.peerId ?? null);
           setStatus("chat");
         } else {
-          // pas encore de pair → réessaye
-          setTimeout(tryJoin, 2500);
+          // pas encore de pair → on retente
+          joinTimeout = window.setTimeout(tryJoin, 2500);
         }
       } catch (e) {
         console.error(e);
@@ -51,19 +54,25 @@ export default function RandomChatPage() {
 
     tryJoin();
 
-    // 3) LEAVE la queue si on quitte la page
+    // LEAVE la queue si on quitte la page
     return () => {
       cancelled = true;
+      if (joinTimeout) window.clearTimeout(joinTimeout);
+
       fetch("/api/random/leave", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       }).catch(() => {});
-      if (pollRef.current) clearInterval(pollRef.current);
+
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
   }, [userId]);
 
-  // 4) Polling des messages quand la conversation est créée
+  // 2) Polling des messages quand la conversation est créée
   useEffect(() => {
     if (!conversationId) return;
 
@@ -74,22 +83,31 @@ export default function RandomChatPage() {
     };
 
     fetchMessages();
-    pollRef.current = setInterval(fetchMessages, 2000);
+    pollRef.current = window.setInterval(fetchMessages, 2000);
+
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
   }, [conversationId]);
 
-  // 5) Envoyer un message
+  // 3) Envoyer un message
   const send = async () => {
     if (!conversationId || !input.trim() || !userId) return;
     const content = input.trim();
     setInput("");
 
-    // optimiste
+    // rendu optimiste
     setMessages((m) => [
       ...m,
-      { id: "temp-" + Date.now(), senderId: userId, content, createdAt: new Date().toISOString() },
+      {
+        id: "temp-" + Date.now(),
+        senderId: userId,
+        content,
+        createdAt: new Date().toISOString(),
+      },
     ]);
 
     await fetch(`/api/chat/${conversationId}/message`, {
@@ -103,7 +121,7 @@ export default function RandomChatPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4">
-      {/* Barre d’onglets façon /love /friendship /chat aléatoire */}
+      {/* Onglets comme /love /friendship /chat aléatoire */}
       <div className="flex gap-6 mb-6 border-b pb-2 text-sm">
         <Link href="/love" className="text-gray-500 hover:text-gray-900">
           Amour
@@ -117,7 +135,9 @@ export default function RandomChatPage() {
       {status === "search" && (
         <div className="rounded-2xl border p-8 text-center">
           <p className="text-lg">Recherche d’un partenaire…</p>
-          <p className="text-gray-500 mt-2">Reste sur cette page, on te connecte dès que possible.</p>
+          <p className="text-gray-500 mt-2">
+            Reste sur cette page, on te connecte dès que possible.
+          </p>
           <div className="animate-pulse mt-6 text-3xl">💬</div>
         </div>
       )}
@@ -133,7 +153,9 @@ export default function RandomChatPage() {
           <div className="border-b pb-3 mb-3 flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-500">Conversation</div>
-              <div className="font-semibold">Anonyme avec {peerId ?? "?"}</div>
+              <div className="font-semibold">
+                Anonyme avec {peerId ?? "?"}
+              </div>
             </div>
             <button
               className="text-sm px-3 py-1 rounded-lg border hover:bg-gray-50"
