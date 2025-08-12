@@ -1,3 +1,4 @@
+"use client";
 // pages/chat/random.tsx
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -19,7 +20,7 @@ export default function RandomChatPage() {
   const [input, setInput] = useState("");
 
   // ✅ Ref du poll, typée proprement
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<number | null>(null);
 
   // 1) JOIN queue & match
   useEffect(() => {
