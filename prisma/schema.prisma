@@ -1,32 +1,27 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider ="mysql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String   @unique
-  emailVerified DateTime?
-  image         String?
+  email         String    @unique
   passwordHash  String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  profiles      Profile[]
-  conversations ConversationParticipant[]
-  messages      Message[]
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  emailVerified DateTime?
+  verifyToken   String?   @unique
 
-  queue        RandomQueue?   // relation 1-1 vers RandomQueue
-}
-
-enum ProfileType {
-  LOVE
-  FRIEND
+  profiles     Profile[]
+  participants ConversationParticipant[]
+  messages     Message[]
+  queue        RandomQueue?
 }
 
 model Profile {
@@ -42,31 +37,40 @@ model Profile {
   updatedAt DateTime    @updatedAt
 }
 
+enum ProfileType {
+  LOVE
+  FRIEND
+}
+
 model Conversation {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
-  participants  ConversationParticipant[]
-  messages      Message[]
-  isAnonymous   Boolean  @default(true)
+  id           String                    @id @default(cuid())
+  createdAt    DateTime                  @default(now())
+  isAnonymous  Boolean                   @default(true)
+  participants ConversationParticipant[]
+  messages     Message[]
 }
 
 model ConversationParticipant {
-  id             String        @id @default(cuid())
-  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
   conversationId String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String
-  nickname       String?       // for anonymous chat
+  nickname       String?
+
+  @@unique([conversationId, userId])
 }
 
 model Message {
-  id             String        @id @default(cuid())
-  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
   conversationId String
-  sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
   senderId       String
   content        String
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 enum IntentType {
@@ -77,12 +81,10 @@ enum IntentType {
 
 model RandomQueue {
   id         String     @id @default(cuid())
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String     @unique
   intent     IntentType @default(CHAT)
   enqueuedAt DateTime   @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@index([intent, enqueuedAt])
 }
-
